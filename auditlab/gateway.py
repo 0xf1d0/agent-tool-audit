@@ -167,7 +167,17 @@ class Gateway:
                 "request_keys": sorted(body) if isinstance(locals().get("body"), dict) else None,
                 "request_sha256": hashlib.sha256(raw).hexdigest()})
             return error(400, "Invalid or unsupported completion request")
+        # JSON normalization can enlarge an accepted inbound body. Bound the exact
+        # bytes sent upstream so max_requests * (cap + output + overhead) is valid.
+        if len(payload) > self.cfg['max_request_bytes']:
+            self.record({'status': 'rejected_request', 'model': self.model,
+                         'upstream_dispatched': False, 'usage': None,
+                         'reason': 'Serialized request exceeds size limit',
+                         'request_bytes': len(payload), 'local_status': 413})
+            return error(413, 'Serialized request exceeds size limit')
         reservation = len(payload) + body["max_tokens"] + 4096
+        # observed_token_limit is a pre-request stop threshold, not admission
+        # tokenization: a final response may cross it. No later request dispatches.
         if (self.requests >= self.cfg["max_requests"]
                 or self.reserved + reservation > self.cfg["reservation_units"]
                 or self.observed >= self.cfg["observed_token_limit"]):

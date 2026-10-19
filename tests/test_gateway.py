@@ -86,6 +86,55 @@ class GatewayTests(unittest.TestCase):
         self.g.clock = lambda: self.g.deadline
         self.assertEqual(self.request()[0], 403)
 
+    def test_observed_token_stop_threshold_allows_final_request_overshoot(self):
+        self.g.cfg = {**self.cfg, 'observed_token_limit': 20}
+        self.assertEqual(self.request()[0], 200)
+        self.assertEqual(self.request()[0], 200)
+        self.assertEqual(self.g.observed, 24)
+        self.assertEqual(self.request()[0], 429)
+        self.assertEqual(len(self.calls), 2)
+
+    def test_final_serialized_payload_is_capped_not_only_inbound_bytes(self):
+        self.g.cfg = {**self.cfg, 'max_request_bytes': 200}
+        body = {'model': self.cfg['models'][0], 'messages': [{'role': 'user', 'content': ''}],
+                'max_tokens': 1024, 'temperature': 0}
+        body['messages'][0]['content'] = 'x' * (201 - len(json.dumps(body).encode()))
+        raw = json.dumps(body, separators=(',', ':')).encode()
+        self.assertLessEqual(len(raw), 200)
+        status, _, _ = self.g.handle('/v1/chat/completions', 'Bearer ' + self.token, raw)
+        self.assertEqual(status, 413)
+        self.assertEqual(self.calls, [])
+        self.assertFalse(list(lines(self.root / 'ledger'))[-1]['upstream_dispatched'])
+
+    def test_paired_revision_consistency_and_four_maximum_serialized_requests(self):
+        cfg = load(ROOT / 'configs/ministral-free.gateway.json')
+        policy = load(ROOT / 'configs/opencode-v2.ministral.json')
+        provider = policy['providers']['mistral']
+        self.assertEqual(provider['body']['max_tokens'], cfg['max_output_tokens'])
+        self.assertEqual(cfg['max_output_tokens'], 4096)
+        self.assertEqual(cfg['max_requests'], policy['agents']['build']['steps'])
+        self.assertEqual(cfg['max_requests'], 4)
+        self.assertEqual(set(provider['models']), set(cfg['models']))
+        self.assertTrue(all(m['limit']['output'] == 4096 for m in provider['models'].values()))
+        bound = cfg['max_requests'] * (cfg['max_request_bytes'] + cfg['max_output_tokens'] + 4096)
+        self.assertEqual(bound, 425984)
+        self.assertEqual(cfg['reservation_units'], 524288)
+        self.assertEqual(cfg['observed_token_limit'], 32768)
+        # Isolate byte accounting from pacing; no real calls or sleeps in this test.
+        cfg.pop('tokens_per_minute')
+        self.g = gateway.Gateway(cfg, self.token, 'key', self.root / 'revision-ledger',
+                                 cfg['models'][0], self.forward)
+        body = {'model': cfg['models'][0], 'messages': [{'role': 'user', 'content': ''}],
+                'max_tokens': 4096, 'temperature': 0}
+        body['messages'][0]['content'] = 'x' * (cfg['max_request_bytes'] - len(json.dumps(body).encode()))
+        raw = json.dumps(body).encode()
+        self.assertEqual(len(raw), cfg['max_request_bytes'])
+        for _ in range(4):
+            self.assertEqual(self.g.handle('/v1/chat/completions', 'Bearer ' + self.token, raw)[0], 200)
+        self.assertEqual(self.g.reserved, bound)
+        self.assertEqual(self.g.handle('/v1/chat/completions', 'Bearer ' + self.token, raw)[0], 429)
+        self.assertEqual(len(self.calls), 4)
+
     def test_missing_usage_or_provider_failure_stops_session(self):
         self.response = b'{"choices": []}'
         self.assertEqual(self.request()[0], 502)

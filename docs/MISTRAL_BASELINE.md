@@ -1,5 +1,24 @@
 # Current Ministral gate (2026-10-19)
 
+Latest paired-budget retry is recorded in
+[the revision plan](plans/2026-10-19-paired-budget-revision.md) and STATUS.
+Both models now have 4096 output allowance; gateway max_requests and agent steps
+remain four, reservation_units=524288, observed_token_limit=32768. The latter is
+a pre-request stop threshold and permits a final-request overshoot, not a hard
+token cap. Final serialized payloads are bounded at 98304 bytes; four requests
+reserve <=425984 byte/output/4096-overhead units, distinct from measured tokens.
+Fresh prep-002/build-002 images were inspected and used for one 8B baseline-002.
+It completed four provider requests and two local tool executions, used 17226
+measured tokens, then stopped at the four-step ceiling before JSON/DOT generation.
+No output-cap truncation detected; final finish reason was not emitted/captured.
+14B and all reviews remain held because benchmark utility failed. Next experiment
+must declare a paired step/request revision rather than reuse the old 429 blocker.
+Post-run corrected normalization is trace-v2/inventory-v2: providerResult.executed
+marks provider-hosted execution, not local execution; local tools can complete
+while this field is false. Prior attempt and normalized versions remain evidence.
+
+The paragraphs and commands below describe the earlier checkpoint.
+
 The current acting IDs are `mistral/ministral-8b-2512` and
 `mistral/ministral-14b-2512`. See [the current plan](plans/2026-10-19-ministral-baseline.md)
 and STATUS before using the older Small/Medium commands below. Both exact IDs

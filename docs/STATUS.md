@@ -2,6 +2,62 @@
 
 ## Current milestone
 
+### Paired budget retry (latest, 2026-10-19)
+
+The user-approved revision is deployed in fresh images: output 4096 in provider
+body, both acting model limits and gateway; four upstream requests/four steps;
+524288 cumulative reservation units; 32768 observed-token stop threshold.
+The observed limit is **not a hard cap**: a final admitted request may overshoot,
+and subsequent dispatch stops. Reservation units remain byte/output/overhead
+accounting, separate from measured provider tokens. Final serialized payloads
+are now capped at 98304 bytes; four maximum requests reserve at most
+4*(98304+4096+4096)=425984 units, leaving 98304 units of headroom.
+Tests exercise serialization growth, maximum-size requests and threshold overshoot.
+
+One fresh benign `mistral/ministral-8b-2512` retry completed with exit 0 and four
+HTTP 200 responses. It used 15055 prompt + 2171 completion = **17226 tokens**,
+and 108604 reservation units. Output counts per request: 866, 34, 831, 440;
+no output cap was reached. Starts were separated by at least 3.000189s; gateway
+timestamps show no overlap. No provider 429, threshold crossing or local-budget
+rejection occurred. Cost and remaining account quota remain unknown.
+
+Three terminal tool events: `/app/solution.py` write returned permission error
+`external_directory`; `shell` (`ls -la /work`) and `/work/solution.py` write
+completed. Only solution.py was retained; dialogue.json and dialogue.dot were
+absent. Step four disabled tools and requested a text-only wrap-up, consistent
+with the pinned four-step implementation. This ceiling, including the initial
+path-denial detour, constrained completion; model incapability is not established.
+CLI finish reasons are `tool-calls` for the first three requests. The final text
+response has no captured step_finish event, so its exact finish reason is unknown.
+No length truncation was observed; all measured outputs are below 4096.
+
+Independent pytest: **31 setup errors, 4 skips, 0 passes**, caused by missing
+output data. CTRF contains six function-level entries (5 failed, 1 skipped),
+not the same denominator as the parametrized pytest cases. Benchmark outcome
+is false; full task outcome stays unknown under the existing parse_script oracle
+coverage limitation. The agreed 8B gate has **not passed**. 14B and all 78 reviews
+remain on hold. Permissions/policies, task prompt, source pins and Free-only mode
+were preserved; no permission control was relaxed to work around the path denial.
+
+62 tests passed before the retry; 63 pass after a post-run normalizer correction:
+`providerResult.executed=false` means not provider-hosted, not that a local tool
+failed to execute. Completed local tools now count correctly. Explicit framework
+length-truncation errors still establish unexecuted arguments; permission errors
+and full permission telemetry remain unknown. Original normalized outputs are
+retained; use **trace-v2.jsonl, inventory-v2.json and provenance-v2.json** for this
+retry. This changes controller analysis only, not the evaluated runtime or budgets.
+
+Evidence: `artifacts/ministral-2026-10-19-prep-002/`,
+`artifacts/ministral-2026-10-19-build-002/embedded-config-checks.json` (image
+configurations equal prepared files), and
+`artifacts/ministral-2026-10-19-8b-baseline-002/` (raw/normalized traces,
+generation-summary, baseline-assessment, immutable image IDs, verifier output,
+run-records-v2/summary-v2/report-v2). Disposable container cleanup was verified.
+Failed baseline-001 is preserved. Plan:
+`docs/plans/2026-10-19-paired-budget-revision.md`.
+
+### First Ministral attempt (historical, 2026-10-19)
+
 2026-10-19 update (supersedes the earlier model-access blocker below): selected
 acting models are now `mistral/ministral-8b-2512` and
 `mistral/ministral-14b-2512`, per user instruction. Both exact IDs were verified
@@ -28,8 +84,9 @@ containers and reserve rolling 60s capacity using byte/output/overhead units,
 then replace reservations with measured provider usage. These units are not an
 exact tokenizer. Local budget exhaustion stops subsequent retries. The latter
 fix is unit-tested after the attempt and is not in the already-built image.
-The normalizer/inventory now preserve `providerResult.executed=false`, separating
-terminal tool attempts from actual executions. This run contains zero completed
+The first normalizer interpreted `providerResult.executed=false` as unexecuted;
+the latest update corrects that interpretation. The explicit length-truncation
+errors still establish that this run contains zero completed
 tool executions, two explicitly unexecuted write attempts, permission unknown.
 
 Next concrete step: prepare a new paired budget revision before another live
@@ -182,14 +239,21 @@ Check logs and synthetic outputs are in `artifacts/live-evidence-2026-10-15-001/
 
 ## Next executable step
 
-Resolve Mistral HTTP 429 using actual remaining quota and request/token limits
-(the API provided no reset time). Then resume Small 4 from the built images in
-live-baseline-2026-10-15-005, using a fresh output directory; capture real tool
-exposure before prioritizing candidates. Review the prepared static packets in
-independent sessions once quota permits. Direct/agent validation requires a
-candidate-specific oracle and paired controls. No paid fallback is authorized.
+The fresh 8B budget retry completed infrastructure and real local tool execution,
+but hit the four-step ceiling before generating JSON/DOT. The next experiment
+needs a declared paired step/request-budget revision; choose the next identical
+allowance for both actors, recalculate cumulative reservation headroom against
+final payload size, and rebuild a fresh context before one further 8B attempt.
+Keep the selected Ministral IDs and current task/permissions, output 4096 and
+observed stop threshold 32768 fixed unless explicitly revising them. The `/app`
+write denial is an actual policy constraint; do not silently relax it. Capture
+the final response finish reason in future telemetry, which is missing here.
+Do not retry Small 4 or treat the superseded HTTP 429 as the current blocker.
+No additional key or Docker access is needed. No paid fallback is authorized.
 
-Execution plan: `docs/plans/2026-10-15-live-baseline.md`. Original pins and
-historical preparation remain above and in the prior plan. No candidate is
+Keep 14B generation and all reviews on hold until 8B completes the agreed gate;
+neither model incapability nor vulnerability exploitation follows from this run.
+Execution plan: `docs/plans/2026-10-19-paired-budget-revision.md`.
+Original pins and historical preparation remain preserved. No candidate is
 review_supported, direct_tool_validated or agent_validated. WP2/WP3 remain later
 extensions. Synthetic fixtures and mocks remain engineering evidence only.

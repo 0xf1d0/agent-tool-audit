@@ -101,10 +101,16 @@ def normalize_opencode(raw, out):
         seen.add(call)
         metadata = state.get('metadata')
         result = metadata.get('providerResult') if isinstance(metadata, dict) else None
-        executed = result.get('executed') if isinstance(result, dict) else None
+        provider_executed = result.get('executed') if isinstance(result, dict) else None
+        error = state.get('error')
+        incomplete_arguments = (isinstance(error, str) and error.startswith(
+            'The tool call was not executed because the output token limit (stop reason: length)'))
         normalized.append({"call_id": call, "tool": part["tool"], "status": state["status"],
-            "execution_state": ('not_executed' if executed is False
-                                else 'completed' if state['status'] == 'completed' else 'unknown'),
+            # providerResult.executed denotes provider-hosted execution, not
+            # whether OpenCode executed a local tool. Local successes set false.
+            "provider_executed": provider_executed if type(provider_executed) is bool else None,
+            "execution_state": ('completed' if state['status'] == 'completed'
+                                else 'not_executed' if incomplete_arguments else 'unknown'),
             "arguments": state.get("input", {}), "permission_state": "unknown",
             "source_sha256": digest(raw)})
     jsonl(out, normalized)
