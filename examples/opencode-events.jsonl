@@ -1,0 +1,1 @@
+{"type": "tool_use", "part": {"callID": "synthetic-call-1", "tool": "read", "state": {"status": "completed", "input": {"filePath": "example.txt"}}}}

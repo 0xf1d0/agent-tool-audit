@@ -1,0 +1,15 @@
+# Project rules apply only in a trusted Codex configuration layer.
+# They are command review hints, not an isolation mechanism.
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Review the staged research evidence and intended remote before publication.",
+    match = ["git push origin main"],
+    not_match = ["git status"],
+)
+prefix_rule(
+    pattern = ["gh", "repo", "create"],
+    decision = "prompt",
+    justification = "Confirm repository visibility and institution licensing before creating a public repository.",
+    match = ["gh repo create auditlab --public"],
+)

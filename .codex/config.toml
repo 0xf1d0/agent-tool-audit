@@ -1,0 +1,14 @@
+approval_policy = "on-request"
+default_permissions = "docker-rootless"
+
+[features]
+network_proxy = true
+
+[permissions.docker-rootless]
+extends = ":workspace"
+
+[permissions.docker-rootless.network]
+enabled = true
+
+[permissions.docker-rootless.network.unix_sockets]
+"/run/user/1000/docker.sock" = "allow"

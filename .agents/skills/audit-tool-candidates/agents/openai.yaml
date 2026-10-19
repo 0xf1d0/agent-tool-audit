@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit tool candidates"
+  short_description: "Trace code sinks and review CWE candidates"
+  default_prompt: "Use $audit-tool-candidates to complete the next evidence-backed step in this research workflow."

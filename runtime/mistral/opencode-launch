@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# /tmp is a new tmpfs for each container, so these directories cannot be baked in.
+mkdir -p /tmp/home /tmp/data /tmp/config /tmp/cache /tmp/state
+exec /usr/local/libexec/opencode "$@"

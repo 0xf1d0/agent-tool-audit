@@ -1,0 +1,42 @@
+{
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "SYNTHETIC-NOT-CODEQL",
+          "rules": [
+            {
+              "id": "demo/path-confinement",
+              "properties": {
+                "tags": [
+                  "external/cwe/cwe-022"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "demo/path-confinement",
+          "message": {
+            "text": "Hand-authored format fixture, not a scanner finding."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "auditlab/demo.py"
+                },
+                "region": {
+                  "startLine": 12
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

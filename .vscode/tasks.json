@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AuditLab: doctor",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "-m",
+        "auditlab",
+        "doctor"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "AuditLab: tests",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AuditLab: demo",
+      "type": "process",
+      "command": "python",
+      "args": [
+        "-m",
+        "auditlab",
+        "demo",
+        "--out",
+        "artifacts/vscode-demo"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

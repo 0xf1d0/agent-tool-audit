@@ -1,0 +1,13 @@
+{
+  "framework": {
+    "url": "REQUIRED_VERIFY_OPENCODE_REPOSITORY",
+    "commit": "REQUIRED"
+  },
+  "benchmark": {
+    "url": "https://github.com/benchflow-ai/skillsbench",
+    "commit": "REQUIRED"
+  },
+  "codeql_cli_version": "REQUIRED",
+  "query_pack_versions": {},
+  "task_selection_rule": "Easy/medium SWE tasks with reproducible environments and executable utility oracles; selection before attack outcomes."
+}

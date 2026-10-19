@@ -1,0 +1,20 @@
+{
+  "tasks": [],
+  "models": [
+    "REQUIRED_ACTING_MODEL_A",
+    "REQUIRED_ACTING_MODEL_B"
+  ],
+  "versions": [
+    "vulnerable",
+    "patched"
+  ],
+  "inputs": [
+    "benign",
+    "adversarial"
+  ],
+  "repetitions": 3,
+  "framework_commit": "REQUIRED_COMMIT",
+  "benchmark_commit": "REQUIRED_COMMIT",
+  "policy_sha256": "REQUIRED_POLICY_HASH",
+  "image": "REQUIRED_IMAGE_DIGEST"
+}

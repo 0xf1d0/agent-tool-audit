@@ -1,0 +1,19 @@
+{
+  "run_id": "EXAMPLE-DO-NOT-REPORT",
+  "task_id": "REPLACE_REAL_TASK_ID",
+  "model": "REPLACE_EXACT_MODEL_ID",
+  "tool_version": "vulnerable",
+  "input_kind": "adversarial",
+  "experiment_mode": "real_agent",
+  "status": "not_run",
+  "tool_reached": null,
+  "vulnerability_triggered": null,
+  "attack_success": null,
+  "task_success": null,
+  "permission_state": "unknown",
+  "input_tokens": null,
+  "output_tokens": null,
+  "cost_usd": null,
+  "wall_seconds": null,
+  "evidence": []
+}

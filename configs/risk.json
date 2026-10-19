@@ -1,0 +1,62 @@
+{
+  "bash": {
+    "input_control": 3,
+    "authority": 3,
+    "boundary_complexity": 3,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "shell": {
+    "input_control": 3,
+    "authority": 3,
+    "boundary_complexity": 3,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "read": {
+    "input_control": 3,
+    "authority": 2,
+    "boundary_complexity": 2,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "write": {
+    "input_control": 3,
+    "authority": 3,
+    "boundary_complexity": 2,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "edit": {
+    "input_control": 3,
+    "authority": 3,
+    "boundary_complexity": 2,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "apply_patch": {
+    "input_control": 3,
+    "authority": 3,
+    "boundary_complexity": 2,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "grep": {
+    "input_control": 3,
+    "authority": 2,
+    "boundary_complexity": 2,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "glob": {
+    "input_control": 2,
+    "authority": 2,
+    "boundary_complexity": 2,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "webfetch": {
+    "input_control": 3,
+    "authority": 3,
+    "boundary_complexity": 3,
+    "rationale": "Initial analyst hypothesis; verify against pinned source and actual permission policy."
+  },
+  "fixture_read": {
+    "input_control": 3,
+    "authority": 2,
+    "boundary_complexity": 1,
+    "rationale": "Synthetic fixture only."
+  }
+}

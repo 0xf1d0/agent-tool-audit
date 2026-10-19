@@ -1,0 +1,4 @@
+interface:
+  display_name: "Validate an audit experiment"
+  short_description: "Check isolated runs, oracles and paired controls"
+  default_prompt: "Use $validate-audit-experiment to complete the next evidence-backed step in this research workflow."

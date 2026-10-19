@@ -1,0 +1,4 @@
+interface:
+  display_name: "Report audit evidence"
+  short_description: "Report results with explicit uncertainty"
+  default_prompt: "Use $report-audit-evidence to complete the next evidence-backed step in this research workflow."
