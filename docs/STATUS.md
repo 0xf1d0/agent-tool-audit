@@ -2,7 +2,55 @@
 
 ## Current milestone
 
-Docker access and Mistral Free-mode confirmation are resolved. Pinned images
+2026-10-19 update (supersedes the earlier model-access blocker below): selected
+acting models are now `mistral/ministral-8b-2512` and
+`mistral/ministral-14b-2512`, per user instruction. Both exact IDs were verified
+in the pinned catalog, actual configured OpenCode CLI listing and authenticated
+Mistral model list. 8B direct completion returned HTTP 200 (`OK.`, 11 tokens;
+the exact-text checker flagged punctuation); its forced function-call probe
+passed with 97 tokens. The fresh 8B baseline failed: two generated write calls
+were truncated at the 1024-output-token cap and explicitly never executed.
+Its two upstream requests succeeded (9203 tokens), then local cumulative
+reservation budget exhaustion prevented further dispatch. The controller stopped
+the actor and the independent verifier recorded 0 passed / 5 failed / 1 skipped.
+This is a budget-limited integration attempt, not a provider-quota failure or a
+clean model-task-failure measurement. Full task outcome remains unknown under
+the existing oracle coverage limitation; benchmark outcome is false.
+No 14B generation or review call was made, honoring the successful-8B-baseline gate. See
+`docs/plans/2026-10-19-ministral-baseline.md` and fresh
+`artifacts/ministral-2026-10-19-*` evidence. Historical failures remain below.
+
+Current checks: 59 unit tests pass. Four successful provider requests consumed
+7248 prompt + 2063 completion = 9311 measured tokens, with minimum start spacing
+9.123 seconds and no upstream 429. Cost and remaining quota remain unknown.
+Gateway controls now share a process-exclusive pacing state across probes and
+containers and reserve rolling 60s capacity using byte/output/overhead units,
+then replace reservations with measured provider usage. These units are not an
+exact tokenizer. Local budget exhaustion stops subsequent retries. The latter
+fix is unit-tested after the attempt and is not in the already-built image.
+The normalizer/inventory now preserve `providerResult.executed=false`, separating
+terminal tool attempts from actual executions. This run contains zero completed
+tool executions, two explicitly unexecuted write attempts, permission unknown.
+
+Next concrete step: prepare a new paired budget revision before another live
+attempt. Current 48000 cumulative reservation units leave only 5035 after two
+requests, below the 5120 output-plus-overhead minimum for another default call;
+1024 output tokens also truncate the generated tool arguments. Increase output
+and reservation allowances consistently for both actors while retaining explicit
+request/observed-token caps, then rerun the 8B gate before any 14B generation.
+No additional credential, Docker permission or exact model identifier is needed.
+Account remaining quota/reset and billed cost still need provider account data;
+they did not block the four successful requests. All 78 reviews remain unlaunched.
+
+New evidence: `artifacts/ministral-2026-10-19-account-002/preflight.json`,
+`ministral-2026-10-19-prep-001/`, `ministral-2026-10-19-build-001/`,
+`ministral-2026-10-19-8b-completion-001/`, `ministral-2026-10-19-8b-function-001/`,
+and `ministral-2026-10-19-8b-baseline-001/` under `artifacts/`. The last directory
+contains trial/CTRF, raw and normalized traces, execution-aware inventory,
+controller-stop explanation and generation-summary. Shared quota state is in
+`artifacts/ministral-2026-10-19-pacing/`, never mounted into the actor.
+
+Earlier checkpoint (2026-10-15): Docker access and Mistral Free-mode confirmation were resolved. Pinned images
 built and both primary benign attempts ran, but each Mistral completion request
 returned HTTP 429. No model completion/tool exposure was observed. Isolated
 CodeQL extraction and analysis completed, yielding 78 provisional repository-wide
@@ -43,7 +91,7 @@ the objective. WP2/WP3 remain later extensions.
   fresh synthetic demo/inventory/report passed. Gateway and baseline dry runs
   passed their planning checks; unresolved controlled matrix correctly rejected.
 
-## Actual blockers and remaining checks
+## Historical blockers and checks recorded on 2026-10-15
 
 1. **Mistral generation:** Small 4 and Medium 3.5 each received HTTP 429 on one
    upstream request. Medium's provider error is rate_limited / 1300 / Rate limit

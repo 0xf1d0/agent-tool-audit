@@ -102,15 +102,28 @@ class GatewayTests(unittest.TestCase):
 
     def test_http_quota_details_are_preserved_without_keys(self):
         def limited(data):
-            raise urllib.error.HTTPError(gateway.UPSTREAM, 429, 'limited', {'Retry-After': '60'},
+            raise urllib.error.HTTPError(gateway.UPSTREAM, 429, 'limited', {
+                'Retry-After': '60', 'X-RateLimit-Reset': 'private-test-key', 'Authorization': 'secret'},
                 io.BytesIO(b'{"message":"quota private-test-key"}'))
         self.g.transport = limited
         self.assertEqual(self.request()[0], 502)
         record = list(lines(self.root / 'ledger'))[-1]
         self.assertEqual(record['upstream_status'], 429)
         self.assertEqual(record['retry_after'], '60')
+        self.assertEqual(record['rate_limit_headers']['X-RateLimit-Reset'], '[REDACTED]')
+        self.assertNotIn('Authorization', record['rate_limit_headers'])
         self.assertNotIn('private-test-key', record['provider_error']['message'])
         self.assertIsNone(record['usage'])
+
+    def test_exhausted_local_budget_stops_retries_without_upstream_calls(self):
+        self.g.cfg = {**self.cfg, 'max_requests': 1}
+        self.assertEqual(self.request()[0], 200)
+        self.assertEqual(self.request()[0], 429)
+        self.assertEqual(self.request()[0], 403)
+        self.assertEqual(len(self.calls), 1)
+        last = list(lines(self.root / 'ledger'))[-1]
+        self.assertEqual(last['status'], 'rejected_budget')
+        self.assertFalse(last['upstream_dispatched'])
 
     def test_usage_schema_drift_and_wrong_denominator(self):
         for usage in [{'prompt_tokens': True, 'completion_tokens': 1, 'total_tokens': 2},

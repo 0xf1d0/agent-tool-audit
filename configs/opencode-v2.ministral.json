@@ -1,0 +1,141 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "snapshots": false,
+  "formatter": false,
+  "lsp": false,
+  "providers": {
+    "mistral": {
+      "env": [
+        "AUDITLAB_GATEWAY_TOKEN"
+      ],
+      "settings": {
+        "baseURL": "http://auditlab-gateway:8080/v1",
+        "timeout": 150000,
+        "encoding": "none"
+      },
+      "body": {
+        "temperature": 0,
+        "max_tokens": 1024
+      },
+      "models": {
+        "ministral-8b-2512": {
+          "modelID": "ministral-8b-2512",
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 262144,
+            "output": 1024
+          }
+        },
+        "ministral-14b-2512": {
+          "modelID": "ministral-14b-2512",
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 262144,
+            "output": 1024
+          }
+        }
+      }
+    }
+  },
+  "agents": {
+    "build": {
+      "steps": 4
+    }
+  },
+  "permissions": [
+    {
+      "action": "*",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "edit",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "glob",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "grep",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "shell",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "execute",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "external_directory",
+      "resource": "/tmp/*",
+      "effect": "allow"
+    }
+  ],
+  "policies": [
+    {
+      "action": "provider.use",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "provider.use",
+      "resource": "mistral",
+      "effect": "allow"
+    },
+    {
+      "action": "integration.use",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "webfetch:*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "websearch:*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "subagent:*",
+      "effect": "deny"
+    },
+    {
+      "action": "tool.use",
+      "resource": "question:*",
+      "effect": "deny"
+    }
+  ]
+}

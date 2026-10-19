@@ -1,3 +1,31 @@
+# Current Ministral gate (2026-10-19)
+
+The current acting IDs are `mistral/ministral-8b-2512` and
+`mistral/ministral-14b-2512`. See [the current plan](plans/2026-10-19-ministral-baseline.md)
+and STATUS before using the older Small/Medium commands below. Both exact IDs
+were verified in the configured CLI and account catalog. Minimal 8B chat and
+function requests succeeded; its first OpenCode baseline failed at the local
+output/reservation caps. 14B generation is held until 8B baseline success.
+
+New configuration files are `configs/opencode-v2.ministral.json` and
+`configs/ministral-free.gateway.json`. `scripts/probe_mistral.py` sends exactly
+one request through gateway code with `--pacing-state`; the baseline driver
+requires `--pacing-directory` for this configuration. Use the same controller-only
+state directory across every stage/model. The gateway uses an exclusive file
+lock throughout each upstream call, >=3s start spacing, and rolling 60s quota
+reservations replaced by measured usage. Reservations count request bytes,
+output allowance and overhead; they are not an exact tokenizer. Unknown usage
+blocks subsequent sessions. Never delete/reset shared state to retry a failure.
+Only the gateway gets the pacing mount and real key; the actor gets neither.
+
+The failed attempt's immutable images remain evidence. Subsequent local-budget
+fail-stop and redaction fixes need a fresh prepared context/build. A new paired
+budget revision is needed before further baseline calls; preserve the original
+1024-output/48000-reservation failed attempt. No 14B/reviewer calls are authorized
+by the failed 8B gate. Account cost and remaining quota stay unknown.
+
+
+
 # First benign baseline with Mistral Free mode
 
 Prepared on 2026-10-14 using the latest upstream default branches at fetch time.

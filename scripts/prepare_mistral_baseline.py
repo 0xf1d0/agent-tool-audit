@@ -23,7 +23,8 @@ def source(root):
             'commit': commit, 'clean': True, 'license_sha256': digest(root / 'LICENSE')}
 
 
-def prepare(out):
+def prepare(out, opencode_config=ROOT / 'configs/opencode-v2.baseline.json',
+            gateway_config=ROOT / 'configs/mistral-free.gateway.json'):
     out = fresh(out).resolve()
     framework, benchmark = ROOT / 'vendor/opencode', ROOT / 'vendor/skillsbench'
     sources = {'framework': source(framework), 'benchmark': source(benchmark),
@@ -75,8 +76,8 @@ def prepare(out):
         subprocess.run(['git', '-C', str(framework), 'archive', '--format=tar', '--prefix=opencode/', 'HEAD'], stdout=f, check=True)
     shutil.copy(ROOT / 'runtime/mistral/Dockerfile', context / 'Dockerfile')
     shutil.copy(ROOT / 'runtime/mistral/opencode-launch', context / 'opencode-launch')
-    shutil.copy(ROOT / 'configs/opencode-v2.baseline.json', context / 'opencode.json')
-    shutil.copy(ROOT / 'configs/mistral-free.gateway.json', context / 'gateway.json')
+    shutil.copy(opencode_config, context / 'opencode.json')
+    shutil.copy(gateway_config, context / 'gateway.json')
     shutil.copytree(ROOT / 'auditlab', context / 'auditlab', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     shutil.copytree(task / 'verifier', context / 'verifier')
     # Keep acting input and controller-only verifier physically separate.
@@ -88,7 +89,7 @@ def prepare(out):
     version = json.loads((framework / 'package.json').read_text())['version']
     cfg = json.loads((ROOT / 'configs/pilot.template.json').read_text())
     cfg.update(tasks=[r['task_id'] for r in selected['tasks']],
-        models=['mistral/mistral-small-2603', 'mistral/mistral-medium-3-5'],
+        models=['mistral/' + m for m in json.loads((context / 'gateway.json').read_text())['models']],
         framework_commit=sources['framework']['commit'], benchmark_commit=sources['benchmark']['commit'],
         policy_sha256=digest(context / 'opencode.json'), image='REQUIRED_BUILT_IMAGE_ID')
     write(out / 'pilot.unresolved.json', cfg)
@@ -118,5 +119,7 @@ def prepare(out):
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('--out', required=True)
+    p.add_argument('--opencode-config', default=str(ROOT / 'configs/opencode-v2.baseline.json'))
+    p.add_argument('--gateway-config', default=str(ROOT / 'configs/mistral-free.gateway.json'))
     a = p.parse_args()
-    print(prepare(a.out))
+    print(prepare(a.out, a.opencode_config, a.gateway_config))

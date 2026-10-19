@@ -10,10 +10,12 @@ import os
 import time
 import urllib.error
 import urllib.request
+from contextlib import nullcontext
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from .io import fresh, load, write
+from .pacing import Pacer
 
 UPSTREAM = "https://api.mistral.ai/v1/chat/completions"
 FIELDS = {"model", "messages", "tools", "tool_choice", "parallel_tool_calls",
@@ -35,6 +37,11 @@ def validate_config(cfg):
             raise ValueError(f"{key} must be a positive integer")
     if cfg.get("free_only") is not True:
         raise ValueError("Only Free-mode experiments are authorized")
+    if 'tokens_per_minute' in cfg:
+        if (set(cfg['tokens_per_minute']) != set(models)
+                or any(type(v) is not int or v < 1 for v in cfg['tokens_per_minute'].values())
+                or cfg.get('minimum_start_interval_seconds', 0) < 3):
+            raise ValueError('Invalid shared pacing limits')
     return cfg
 
 
@@ -75,7 +82,7 @@ def provider_usage(data, content_type):
 
 
 class Gateway:
-    def __init__(self, cfg, token, api_key, ledger, model, transport=None, clock=time.monotonic):
+    def __init__(self, cfg, token, api_key, ledger, model, transport=None, clock=time.monotonic, pacing_state=None):
         self.cfg = validate_config(cfg)
         if model not in cfg["models"]:
             raise ValueError("Session model is not allowed")
@@ -87,6 +94,10 @@ class Gateway:
         self.requests = self.reserved = self.observed = 0
         self.stopped = False
         self.transport = transport or self.forward
+        self.pacer = (Pacer(pacing_state or os.environ.get('AUDITLAB_PACING_STATE')
+                            or self.ledger.parent / 'pacing.json', cfg['tokens_per_minute'],
+                            cfg['minimum_start_interval_seconds'])
+                      if 'tokens_per_minute' in cfg else None)
 
     def record(self, value):
         with self.ledger.open("a", encoding="utf-8") as f:
@@ -160,6 +171,12 @@ class Gateway:
         if (self.requests >= self.cfg["max_requests"]
                 or self.reserved + reservation > self.cfg["reservation_units"]
                 or self.observed >= self.cfg["observed_token_limit"]):
+            self.stopped = True
+            self.record({'status': 'rejected_budget', 'model': self.model,
+                         'upstream_dispatched': False, 'usage': None,
+                         'local_status': 429, 'requested_reservation_units': reservation,
+                         'reserved_units_total': self.reserved, 'observed_tokens': self.observed,
+                         'request_count': self.requests})
             return error(429, "Local experiment budget exhausted")
         # Serialized HTTPServer and pre-dispatch reservations prevent concurrent overruns.
         self.requests += 1
@@ -172,13 +189,21 @@ class Gateway:
         # Write before dispatch: an interrupted upstream request remains an unknown attempt.
         self.record(record)
         try:
-            status, content_type, data = self.transport(payload)
-            record["upstream_status"] = status
-            record["response_sha256"] = hashlib.sha256(data).hexdigest()
-            if not 200 <= status < 300:
-                raise ValueError("Provider returned an error")
-            usage = provider_usage(data, content_type)
+            slot = (self.pacer.slot(self.model, reservation, max(0, self.deadline - self.clock()))
+                    if self.pacer else nullcontext({}))
+            with slot as event:
+                record['upstream_start_epoch'] = event.get('start', time.time())
+                if self.pacer:
+                    self.record({**record, 'status': 'upstream_started'})
+                status, content_type, data = self.transport(payload)
+                record["upstream_status"] = status
+                record["response_sha256"] = hashlib.sha256(data).hexdigest()
+                if not 200 <= status < 300:
+                    raise ValueError("Provider returned an error")
+                usage = provider_usage(data, content_type)
+                event['usage'] = usage
             record.update(status="completed", usage=usage)
+            record['upstream_finished_epoch'] = time.time()
             self.observed += usage["total_tokens"]
             self.record(record)
             return status, content_type, data
@@ -189,7 +214,13 @@ class Gateway:
             record["error_type"] = type(exc).__name__
             if isinstance(exc, urllib.error.HTTPError):
                 record["upstream_status"] = exc.code
-                record["retry_after"] = exc.headers.get("Retry-After") if exc.headers else None
+                retry = exc.headers.get("Retry-After") if exc.headers else None
+                record["retry_after"] = (str(retry).replace(self.api_key, '[REDACTED]')
+                                         .replace(self.token, '[REDACTED]')[:500] if retry else None)
+                record['rate_limit_headers'] = {
+                    k: str(v).replace(self.api_key, '[REDACTED]').replace(self.token, '[REDACTED]')[:500]
+                    for k, v in (exc.headers.items() if exc.headers else [])
+                    if (k.lower() == 'retry-after' or k.lower().startswith(('ratelimit', 'x-ratelimit', 'x-rate-limit')))}
                 try:
                     detail = json.loads(exc.read(8192))
                     if isinstance(detail, dict) and isinstance(detail.get('error'), dict):

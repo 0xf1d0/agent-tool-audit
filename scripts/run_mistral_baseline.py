@@ -42,10 +42,12 @@ def workspace_command(image, workspace, owner=None):
     return command + ['--cap-add=CHOWN', '--entrypoint', 'chown', image, '-hR', owner, '/work']
 
 
-def run(preparation, out, model, execute=False, build_record=None):
+def run(preparation, out, model, execute=False, build_record=None, pacing_directory=None):
     prep = Path(preparation).resolve()
     out = fresh(out).resolve()
     cfg = load(prep / 'baseline.json')
+    if ('tokens_per_minute' in cfg.get('budget', {}) and not pacing_directory):
+        raise ValueError('Shared pacing directory required for paced baseline')
     if model not in cfg['models']:
         raise ValueError('Select one of the two pinned acting models')
     if cfg['policy_sha256'] != digest(prep / 'build-context/opencode.json'):
@@ -124,11 +126,21 @@ def run(preparation, out, model, execute=False, build_record=None):
             created_networks.append(egress)
             gateway_evidence = out / 'gateway'
             writable_evidence(gateway_evidence)
+            pacing_args = []
+            if pacing_directory:
+                pacing = Path(pacing_directory).resolve()
+                if not pacing.is_dir() or not (pacing / 'state.json').is_file():
+                    raise ValueError('Existing shared probe pacing state required')
+                pacing_owner = docker(workspace_command(images['agent'], pacing)).stdout.strip()
+                owned_controller_directories.append((pacing, pacing_owner))
+                docker(workspace_command(images['agent'], pacing, '1000:1000'))
+                pacing_args = ['--mount', 'type=bind,src=' + str(pacing) + ',dst=/pacing',
+                               '--env', 'AUDITLAB_PACING_STATE=/pacing/state.json']
             docker(['create', '--name', gw, '--network', egress, '--read-only', '--cap-drop=ALL',
                 '--security-opt=no-new-privileges', '--pids-limit=64', '--memory=256m', '--cpus=1',
                 '--user', '1000:1000', '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m,mode=1777',
                 '--mount', 'type=bind,src=' + str(gateway_evidence) + ',dst=/evidence',
-                '--env', 'MISTRAL_API_KEY', '--env', 'AUDITLAB_GATEWAY_TOKEN', images['gateway'],
+                '--env', 'MISTRAL_API_KEY', '--env', 'AUDITLAB_GATEWAY_TOKEN', *pacing_args, images['gateway'],
                 '--model', model.split('/', 1)[1]], credentials=True)
             created_containers.append(gw)
             docker(['network', 'connect', '--alias', 'auditlab-gateway', internal, gw])
@@ -225,8 +237,9 @@ if __name__ == '__main__':
     p.add_argument('--preparation', required=True); p.add_argument('--out', required=True)
     p.add_argument('--model', required=True); p.add_argument('--execute', action='store_true')
     p.add_argument('--build-record', help='build.json from the successful fresh image build')
+    p.add_argument('--pacing-directory', help='Controller-only quota state shared with direct probes')
     a = p.parse_args()
     try:
-        print(json.dumps(run(a.preparation, a.out, a.model, a.execute, a.build_record), indent=2))
+        print(json.dumps(run(a.preparation, a.out, a.model, a.execute, a.build_record, a.pacing_directory), indent=2))
     except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
         p.exit(2, 'Baseline stopped: ' + str(exc) + '\n')

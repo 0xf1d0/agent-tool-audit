@@ -31,10 +31,10 @@ def settings(env_file=ROOT / '.env'):
     return values
 
 
-def preflight(out, execute=False, env_file=ROOT / '.env'):
+def preflight(out, execute=False, env_file=ROOT / '.env', models=None):
     out = fresh(out)
     values = settings(env_file)
-    models = ['mistral-small-2603', 'mistral-medium-3-5']
+    models = models or ['mistral-small-2603', 'mistral-medium-3-5']
     record = {'status': 'planned', 'credential_available': bool(values.get('MISTRAL_API_KEY')),
         'free_only_confirmed': values.get('MISTRAL_FREE_ONLY_CONFIRMED', '').lower() == 'true',
         'models': {m: {'listed': None, 'capabilities': None, 'completion_verified': None} for m in models},
@@ -73,8 +73,9 @@ if __name__ == '__main__':
     p.add_argument('--out', required=True)
     p.add_argument('--execute', action='store_true')
     p.add_argument('--env-file', default=str(ROOT / '.env'))
+    p.add_argument('--model', action='append')
     a = p.parse_args()
     try:
-        print(json.dumps(preflight(a.out, a.execute, a.env_file), indent=2))
+        print(json.dumps(preflight(a.out, a.execute, a.env_file, a.model), indent=2))
     except (ValueError, OSError) as exc:
         p.exit(2, str(exc) + '\n')

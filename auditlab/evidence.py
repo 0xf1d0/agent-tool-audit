@@ -99,7 +99,12 @@ def normalize_opencode(raw, out):
             counts["duplicate_terminal_events"] += 1
             continue
         seen.add(call)
+        metadata = state.get('metadata')
+        result = metadata.get('providerResult') if isinstance(metadata, dict) else None
+        executed = result.get('executed') if isinstance(result, dict) else None
         normalized.append({"call_id": call, "tool": part["tool"], "status": state["status"],
+            "execution_state": ('not_executed' if executed is False
+                                else 'completed' if state['status'] == 'completed' else 'unknown'),
             "arguments": state.get("input", {}), "permission_state": "unknown",
             "source_sha256": digest(raw)})
     jsonl(out, normalized)
@@ -109,7 +114,8 @@ def normalize_opencode(raw, out):
 
 def inventory(trace, risk, out):
     profile = load(risk)
-    totals = collections.Counter(e["tool"] for e in lines(trace))
+    events = list(lines(trace))
+    totals = collections.Counter(e["tool"] for e in events)
     result = []
     for tool, count in totals.items():
         p = profile.get(tool)
@@ -120,6 +126,10 @@ def inventory(trace, risk, out):
         else:
             score = None
         result.append({"tool": tool, "observed_calls": count, "priority_score": score,
+            "call_count_meaning": "terminal tool events, including explicitly unexecuted attempts",
+            "completed_executions": sum(e.get('execution_state') == 'completed' for e in events if e['tool'] == tool),
+            "known_not_executed": sum(e.get('execution_state') == 'not_executed' for e in events if e['tool'] == tool),
+            "execution_unknown": sum(e.get('execution_state') not in {'completed', 'not_executed'} for e in events if e['tool'] == tool),
             "risk_assessment": p, "status": "needs_source_audit", "score_meaning": "triage heuristic, not exploit probability"})
     result.sort(key=lambda x: (-(x["priority_score"] if x["priority_score"] is not None else -1), -x["observed_calls"], x["tool"]))
     write(out, result)
